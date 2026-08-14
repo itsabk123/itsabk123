@@ -1,0 +1,373 @@
+/* RealtyCompass — vanilla CSS, no build step, no framework. */
+
+:root {
+  --ink: #1b2430;
+  --ink-soft: #52616f;
+  --ink-faint: #8993a0;
+  --paper: #f2f4f6;
+  --paper-raised: #ffffff;
+  --rule: #d7dde2;
+  --blueprint: #2b4c7e;
+  --blueprint-dark: #1f3a63;
+  --blueprint-soft: #e4eaf3;
+  --brass: #97723f;
+  --brass-soft: #f1e6d2;
+  --error: #b3261e;
+  --error-soft: #fbe9e7;
+  --radius: 8px;
+}
+
+* { box-sizing: border-box; }
+
+html, body { margin: 0; padding: 0; }
+
+body {
+  background: var(--paper);
+  color: var(--ink);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+  font-size: 17px;
+  line-height: 1.6;
+}
+
+a { color: var(--blueprint); }
+
+.rc-shell {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.rc-topbar {
+  padding: 1.1rem 1.5rem;
+  border-bottom: 1px solid var(--rule);
+  background: var(--paper-raised);
+}
+
+.rc-brand {
+  font-weight: 700;
+  font-size: 1.1rem;
+  color: var(--ink);
+  text-decoration: none;
+  letter-spacing: -0.01em;
+}
+
+/* Step indicator */
+.rc-steps {
+  display: flex;
+  justify-content: center;
+  gap: 0;
+  list-style: none;
+  margin: 0;
+  padding: 1.4rem 1rem;
+  width: 100%;
+  max-width: 480px;
+  margin-inline: auto;
+}
+
+.rc-step {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.4rem;
+  position: relative;
+  text-align: center;
+}
+
+.rc-step::before {
+  content: "";
+  position: absolute;
+  top: 14px;
+  left: -50%;
+  width: 100%;
+  height: 2px;
+  background: var(--rule);
+  z-index: 0;
+}
+
+.rc-step:first-child::before { display: none; }
+
+.rc-step-num {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--paper-raised);
+  border: 2px solid var(--rule);
+  color: var(--ink-faint);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.85rem;
+  font-weight: 600;
+  z-index: 1;
+}
+
+.rc-step-label {
+  font-size: 0.78rem;
+  color: var(--ink-faint);
+}
+
+.rc-step--active .rc-step-num {
+  border-color: var(--blueprint);
+  color: var(--blueprint);
+}
+.rc-step--active .rc-step-label { color: var(--ink); font-weight: 600; }
+
+.rc-step--done .rc-step-num {
+  border-color: var(--blueprint);
+  background: var(--blueprint);
+  color: #fff;
+}
+.rc-step--done::before { background: var(--blueprint); }
+.rc-step--done .rc-step-label { color: var(--ink-soft); }
+
+.rc-main {
+  flex: 1;
+  width: 100%;
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 1rem 1.25rem 3rem;
+}
+
+/* Hero (step 1 only) */
+.rc-hero {
+  text-align: center;
+  padding: 2rem 0 1.6rem;
+}
+
+.rc-hero h1 {
+  font-size: clamp(1.8rem, 5vw, 2.4rem);
+  margin: 0 0 0.6rem;
+  letter-spacing: -0.01em;
+  text-wrap: balance;
+}
+
+.rc-hero p {
+  color: var(--ink-soft);
+  max-width: 46ch;
+  margin: 0 auto;
+  text-wrap: balance;
+}
+
+/* Forms */
+.rc-card {
+  background: var(--paper-raised);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+  padding: 1.6rem;
+}
+
+.rc-form fieldset {
+  border: none;
+  margin: 0 0 1.6rem;
+  padding: 0;
+}
+
+.rc-form legend {
+  font-weight: 600;
+  font-size: 0.95rem;
+  margin-bottom: 0.6rem;
+  padding: 0;
+}
+
+.rc-form .rc-hint {
+  font-size: 0.85rem;
+  color: var(--ink-faint);
+  margin: -0.3rem 0 0.6rem;
+}
+
+.rc-field { margin-bottom: 1.4rem; }
+
+.rc-field label.rc-label {
+  display: block;
+  font-weight: 600;
+  font-size: 0.92rem;
+  margin-bottom: 0.4rem;
+}
+
+.rc-field input[type="text"],
+.rc-field input[type="tel"],
+.rc-field input[type="email"],
+.rc-field select {
+  width: 100%;
+  padding: 0.7rem 0.8rem;
+  font-size: 1rem;
+  border: 1px solid var(--rule);
+  border-radius: 6px;
+  background: var(--paper-raised);
+  color: var(--ink);
+  font-family: inherit;
+}
+
+.rc-field input:focus,
+.rc-field select:focus,
+.rc-choice input:focus-visible + span {
+  outline: 2px solid var(--blueprint);
+  outline-offset: 1px;
+}
+
+.rc-choice-group {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 0.5rem;
+}
+
+.rc-choice {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  border: 1px solid var(--rule);
+  border-radius: 6px;
+  padding: 0.6rem 0.75rem;
+  font-size: 0.92rem;
+  cursor: pointer;
+}
+
+.rc-choice input { accent-color: var(--blueprint); }
+
+.rc-error {
+  color: var(--error);
+  background: var(--error-soft);
+  border: 1px solid #f0c6c2;
+  border-radius: 6px;
+  padding: 0.7rem 0.9rem;
+  font-size: 0.88rem;
+  margin: 0 0 1.4rem;
+}
+
+.rc-field-error {
+  color: var(--error);
+  font-size: 0.82rem;
+  margin-top: 0.35rem;
+}
+
+.rc-consent {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+  font-size: 0.9rem;
+  color: var(--ink-soft);
+  margin-bottom: 1.4rem;
+}
+.rc-consent input { margin-top: 0.25rem; accent-color: var(--blueprint); }
+
+/* Honeypot: hidden from sighted users and screen readers, still reachable by bots that fill every field. */
+.rc-hp {
+  position: absolute;
+  left: -9999px;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+}
+
+.rc-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  margin-top: 1.8rem;
+}
+
+.rc-btn {
+  display: inline-block;
+  background: var(--blueprint);
+  color: #fff;
+  border: none;
+  padding: 0.8rem 1.6rem;
+  font-size: 1rem;
+  font-weight: 600;
+  border-radius: 6px;
+  cursor: pointer;
+  text-decoration: none;
+  text-align: center;
+}
+.rc-btn:hover, .rc-btn:focus-visible { background: var(--blueprint-dark); }
+.rc-btn:focus-visible { outline: 2px solid var(--blueprint-dark); outline-offset: 2px; }
+
+.rc-btn-secondary {
+  background: transparent;
+  color: var(--ink-soft);
+  border: 1px solid var(--rule);
+}
+.rc-btn-secondary:hover, .rc-btn-secondary:focus-visible { background: var(--paper); color: var(--ink); }
+
+/* Results */
+.rc-results-intro { text-align: center; margin-bottom: 1.8rem; }
+.rc-results-intro h1 { margin: 0 0 0.5rem; font-size: 1.7rem; }
+.rc-results-intro p { color: var(--ink-soft); margin: 0; }
+
+.rc-result-card {
+  background: var(--paper-raised);
+  border: 1px solid var(--rule);
+  border-left: 4px solid var(--brass);
+  border-radius: var(--radius);
+  padding: 1.4rem 1.5rem;
+  margin-bottom: 1.2rem;
+}
+
+.rc-result-rank {
+  font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 0.75rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--brass);
+}
+
+.rc-result-card h2 {
+  margin: 0.2rem 0 0.4rem;
+  font-size: 1.25rem;
+}
+
+.rc-result-card p.rc-desc { color: var(--ink-soft); margin: 0 0 0.9rem; }
+
+.rc-result-card ul.rc-why {
+  margin: 0 0 0.9rem;
+  padding-left: 1.2rem;
+  font-size: 0.92rem;
+  color: var(--ink);
+}
+.rc-result-card ul.rc-why li { margin: 0.2rem 0; }
+
+.rc-next-action {
+  background: var(--blueprint-soft);
+  border-radius: 6px;
+  padding: 0.7rem 0.9rem;
+  font-size: 0.9rem;
+  color: var(--blueprint-dark);
+}
+
+.rc-empty {
+  text-align: center;
+  color: var(--ink-soft);
+  padding: 2rem 0;
+}
+
+.rc-results-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.8rem;
+  justify-content: center;
+  margin-top: 2rem;
+}
+
+.rc-footer {
+  text-align: center;
+  padding: 1.5rem 1rem;
+  font-size: 0.8rem;
+  color: var(--ink-faint);
+  border-top: 1px solid var(--rule);
+}
+
+@media (max-width: 480px) {
+  .rc-actions { flex-direction: column-reverse; align-items: stretch; }
+  .rc-btn { width: 100%; }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .rc-card, .rc-result-card { animation: rc-fade-in 0.25s ease-out; }
+}
+
+@keyframes rc-fade-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
