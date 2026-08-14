@@ -59,6 +59,7 @@ a { color: var(--blueprint); }
   list-style: none;
   margin: 0;
   padding: 1.4rem 1rem;
+  width: 100%;
   max-width: 480px;
   margin-inline: auto;
 }
