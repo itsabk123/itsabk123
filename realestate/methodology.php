@@ -41,8 +41,8 @@ $statusB = static fn($s) => View::badge($s, ['operational' => 'pos', 'user-data'
         <dt>VaR / CVaR 95%</dt><dd>−P5 of simulated total profit / −mean of profits ≤ P5</dd>
       </dl>
       <h2 style="margin-top:20px">Scenario definitions</h2>
-      <ul class="small"><?php foreach (Analysis::scenarioDefs() as [$l, $d]): ?><li><strong><?= e($l) ?></strong>: <?= $d ? e(json_encode($d)) : 'your inputs' ?></li><?php endforeach; ?></ul>
-      <p class="hint">rent_m and opex_mult are multipliers; other values are additive (decimal points).</p>
+      <ul class="small"><?php foreach (Analysis::scenarioDefs() as [$l, $d]): ?><li><strong><?= e($l) ?></strong>: <?= $d ? e(implode(', ', array_map(static fn($k, $x) => $k . (in_array($k, ['rent_m', 'opex_mult'], true) ? ' ×' . $x : ' ' . sprintf('%+.1f pts', $x * 100)), array_keys($d), $d))) : 'your inputs' ?></li><?php endforeach; ?></ul>
+      <p class="hint">rent_m (rent) and opex_mult (operating costs) are multipliers; other values are additive percentage points.</p>
     </div>
     <div>
       <h2>Scoring curves</h2>

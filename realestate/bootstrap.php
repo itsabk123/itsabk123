@@ -20,7 +20,7 @@ function cfg(string $k)
     static $defaults = null;
     $defaults ??= [
         'DB_DRIVER' => 'sqlite',
-        'DB_PATH' => SS_ROOT . '/data/shelterandsense.sqlite',
+        'DB_PATH' => getenv('SS_TEST_DB') ?: SS_ROOT . '/data/shelterandsense.sqlite',
         'DB_HOST' => 'localhost', 'DB_NAME' => '', 'DB_USER' => '', 'DB_PASS' => '',
         'SITE_URL' => '',
         'SITE_NAME' => 'Shelter and Sense',

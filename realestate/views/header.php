@@ -10,7 +10,7 @@ use SS\{Auth, View, Db};
 $u = Auth::user();
 $page_title = $page_title ?? 'Shelter and Sense';
 $page_desc = $page_desc ?? 'Global real estate investment intelligence: evaluate properties with transparent cash-flow, valuation, simulation and risk analysis.';
-$cur = basename($_SERVER['SCRIPT_NAME'] ?? 'index.php');
+$curPage = basename($_SERVER['SCRIPT_NAME'] ?? 'index.php');
 $unread = $u ? (int) Db::val('SELECT COUNT(*) FROM notifications WHERE user_id = ? AND read_at IS NULL', [$u['id']]) : 0;
 ?><!doctype html>
 <html lang="en">
@@ -49,7 +49,7 @@ $unread = $u ? (int) Db::val('SELECT COUNT(*) FROM notifications WHERE user_id =
     <nav id="mainnav" class="nav" aria-label="Main">
       <ul>
         <?php foreach (View::NAV as [$href, $label]): ?>
-        <li><a href="<?= e(url($href)) ?>"<?= $cur === $href ? ' aria-current="page"' : '' ?>><?= e($label) ?></a></li>
+        <li><a href="<?= e(url($href)) ?>"<?= $curPage === $href ? ' aria-current="page"' : '' ?>><?= e($label) ?></a></li>
         <?php endforeach; ?>
       </ul>
       <div class="nav-acct">

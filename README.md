@@ -78,3 +78,7 @@ sql/
   schema.sql
 config.sample.php       copy to config.php and fill in
 ```
+
+## Shelter and Sense v3 (staging)
+
+The v3 platform lives in [`realestate/`](realestate/README.md) and deploys to `/githubtest2/realestate/`.
