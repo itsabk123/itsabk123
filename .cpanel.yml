@@ -1,0 +1,11 @@
+---
+# cPanel "Git Version Control" deployment for Shelter and Sense v3 staging.
+# In cPanel: Git Version Control → this repo → Manage → Pull or Deploy → "Deploy HEAD Commit".
+# Copies realestate/ to public_html/githubtest2/realestate. The repo never contains the
+# database, uploads or config.php, so live data on the server is not overwritten.
+deployment:
+  tasks:
+    - export DEPLOYPATH=$HOME/public_html/githubtest2/realestate
+    - /bin/mkdir -p $DEPLOYPATH/data
+    - /bin/cp -R realestate/. $DEPLOYPATH/
+    - /bin/chmod 775 $DEPLOYPATH/data
