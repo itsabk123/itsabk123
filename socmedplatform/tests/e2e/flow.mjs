@@ -6,7 +6,7 @@ const { chromium } = createRequire(import.meta.url)("playwright");
 import { PrismaClient } from "@prisma/client";
 import assert from "node:assert/strict";
 
-const BASE = process.env.BASE_URL ?? "http://localhost:3000";
+const BASE = process.env.BASE_URL ?? "http://localhost:3107";
 const db = new PrismaClient();
 const stamp = Date.now();
 const results = [];

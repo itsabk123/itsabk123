@@ -3,9 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "dev": "next dev -p 3107",
     "build": "prisma generate && next build",
-    "start": "next start",
+    "start": "next start -p 3107",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
@@ -13,7 +13,12 @@
     "db:deploy": "prisma migrate deploy",
     "db:seed": "tsx prisma/seed.ts",
     "db:seed:demo": "SEED_DEMO=1 tsx prisma/seed.ts",
-    "test:e2e": "NODE_PATH=$(npm root -g) node tests/e2e/flow.mjs"
+    "test:e2e": "BASE_URL=${BASE_URL:-http://localhost:3107} NODE_PATH=$(npm root -g) node tests/e2e/flow.mjs",
+    "ports": "node scripts/check-ports.mjs",
+    "db:up": "docker compose up -d --wait",
+    "db:stop": "docker compose stop",
+    "db:reset": "prisma migrate reset --force --skip-seed && npm run db:seed:demo",
+    "setup": "prisma migrate deploy && npm run db:seed:demo"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

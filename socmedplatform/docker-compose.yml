@@ -1,0 +1,22 @@
+# Isolated Postgres for local development only.
+# Unusual host port (55432) + its own project/container/volume names so it won't touch other databases.
+name: majlis
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: majlis-db
+    environment:
+      POSTGRES_USER: majlis
+      POSTGRES_PASSWORD: majlis_local
+      POSTGRES_DB: majlis
+    ports:
+      - "127.0.0.1:55432:5432"
+    volumes:
+      - majlis_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U majlis -d majlis"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+volumes:
+  majlis_pgdata:

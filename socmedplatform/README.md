@@ -7,12 +7,15 @@ A working multi-sided marketplace where **brands, podcast hosts, podcast guests,
 **Stack:** Next.js 15 (App Router, server actions) · React 19 · TypeScript · Tailwind · PostgreSQL + Prisma · Vitest + Playwright.
 
 ## Quick start
+
+**Running it on a machine that already runs other things? Follow [LOCAL_SETUP.md](LOCAL_SETUP.md).** It uses isolated ports (app 3107, database 55432) and its own Docker container.
+
 ```bash
-cp .env.example .env          # set DATABASE_URL and APP_SECRET
+cp .env.example .env
+npm run db:up                 # isolated Postgres container on 127.0.0.1:55432
 npm install
-npx prisma migrate deploy
-npm run db:seed:demo          # reference data + super-admin + labelled demo profiles
-npm run dev
+npm run setup                 # migrations + super-admin + labelled demo profiles
+npm run dev                   # http://localhost:3107
 ```
 - Admin: `admin@example.com` / `change-me-admin-123` (local only — set `ADMIN_EMAIL`/`ADMIN_PASSWORD`)
 - Demo users: `demo.brand1@demo.test`, `demo.inf1@demo.test`, `demo.hostfin@demo.test`, `demo.guest2@demo.test`… password `demo-password-123`
