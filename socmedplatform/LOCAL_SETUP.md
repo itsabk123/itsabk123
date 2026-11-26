@@ -9,6 +9,15 @@ Everything is isolated by default:
 | Data / files | `socmedplatform/storage/` and the Docker volume | Nothing written outside this folder |
 | Cookies | Named `mj_session`, `mj_profile`, `mj_locale` | Browsers share localhost cookies across ports; these names are prefixed so they won't overwrite other apps' cookies |
 
+## Easiest: Docker only (no Node.js needed)
+Docker Desktop must be open and running. Then, from the `socmedplatform` folder:
+```
+docker compose --profile app up
+```
+The first run takes a few minutes while it downloads images and installs packages. When you see `Ready`, open **http://localhost:3107**. Keep that terminal open, and press Ctrl+C to stop. Next time, run the same command again; it starts faster.
+
+## Alternative: run Node yourself
+
 ## You need
 - **Node.js 20+** (`node -v`)
 - **Docker Desktop** (or Docker Engine), *or* an existing Postgres you can create a new database in
