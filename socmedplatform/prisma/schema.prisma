@@ -1,0 +1,1214 @@
+// Majlis — UAE creator, podcast & brand collaboration marketplace.
+// Money is stored as integer fils (1 AED = 100 fils). Times are UTC; display defaults to Asia/Dubai.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ───────────────────────────── Identity & access ─────────────────────────────
+
+enum PlatformRole {
+  USER
+  MODERATOR
+  FINANCE
+  ADMIN
+  SUPERADMIN
+}
+
+enum AccountStatus {
+  ACTIVE
+  SUSPENDED
+  DELETED
+}
+
+model User {
+  id              String        @id @default(cuid())
+  email           String        @unique
+  passwordHash    String
+  name            String
+  phone           String?
+  emailVerifiedAt DateTime?
+  phoneVerifiedAt DateTime?
+  platformRole    PlatformRole  @default(USER)
+  status          AccountStatus @default(ACTIVE)
+  suspendedReason String?
+  locale          String        @default("en")
+  timezone        String        @default("Asia/Dubai")
+  referralCode    String        @unique
+  referredById    String?
+  referredBy      User?         @relation("Referrals", fields: [referredById], references: [id])
+  referred        User[]        @relation("Referrals")
+  marketingOptIn  Boolean       @default(false)
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  lastActiveAt    DateTime      @default(now())
+
+  sessions        Session[]
+  tokens          AuthToken[]
+  memberships     OrganizationMember[]
+  profiles        Profile[]            @relation("ProfileOwner")
+  notifications   Notification[]
+  notificationPrefs NotificationPreference[]
+  savedProfiles   SavedProfile[]
+  savedSearches   SavedSearch[]
+  subscriptions   Subscription[]
+  reports         Report[]
+  auditLogs       AuditLog[]
+  matchFeedback   MatchFeedback[]
+  referralsMade   Referral[]           @relation("Referrer")
+  referralRecord  Referral?            @relation("Referee")
+
+  @@index([status])
+  @@index([createdAt])
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  tokenHash String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  ip        String?
+  userAgent String?
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+}
+
+enum AuthTokenType {
+  VERIFY_EMAIL
+  RESET_PASSWORD
+  ORG_INVITE
+}
+
+model AuthToken {
+  id        String        @id @default(cuid())
+  userId    String?
+  user      User?         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      AuthTokenType
+  tokenHash String        @unique
+  email     String?
+  meta      Json?
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime      @default(now())
+}
+
+model RateLimitBucket {
+  key         String   @id
+  count       Int
+  windowStart DateTime
+}
+
+// ───────────────────────────── Organizations ─────────────────────────────
+
+enum OrgType {
+  BRAND
+  AGENCY
+  STUDIO
+}
+
+enum OrgRole {
+  OWNER
+  ADMIN
+  MANAGER
+  MEMBER
+  VIEWER
+}
+
+model Organization {
+  id         String               @id @default(cuid())
+  name       String
+  slug       String               @unique
+  type       OrgType
+  website    String?
+  tradeLicenseNo String?
+  verifiedAt DateTime?
+  createdAt  DateTime             @default(now())
+  members    OrganizationMember[]
+  profiles   Profile[]            @relation("OrgProfiles")
+  managed    Profile[]            @relation("ManagedProfiles")
+  subscriptions Subscription[]
+}
+
+model OrganizationMember {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  userId         String
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role           OrgRole      @default(MEMBER)
+  createdAt      DateTime     @default(now())
+
+  @@unique([organizationId, userId])
+  @@index([userId])
+}
+
+// ───────────────────────────── Profiles (multi-role) ─────────────────────────────
+// One user can own several profiles (e.g. a podcast AND an influencer profile).
+// Brand and agency profiles belong to an Organization. Creators can be managed by an agency.
+
+enum ProfileType {
+  BRAND
+  PODCAST
+  GUEST
+  INFLUENCER
+  AGENCY
+}
+
+enum ProfileStatus {
+  DRAFT
+  PUBLISHED
+  HIDDEN
+  SUSPENDED
+}
+
+enum Visibility {
+  PUBLIC
+  MEMBERS
+  PRIVATE
+}
+
+model Profile {
+  id             String        @id @default(cuid())
+  type           ProfileType
+  slug           String        @unique
+  displayName    String
+  headline       String?
+  bio            String?
+  avatarUrl      String?
+  coverUrl       String?
+  country        String        @default("AE")
+  emirate        String?
+  city           String?
+  serviceAreas   String[]
+  languages      String[]
+  industry       String?
+  subIndustries  String[]
+  niches         String[]
+  website        String?
+  links          Json?
+  contactEmail   String?
+  showContact    Boolean       @default(false)
+  status         ProfileStatus @default(DRAFT)
+  visibility     Visibility    @default(PUBLIC)
+  indexable      Boolean       @default(true)
+  verifiedAt     DateTime?
+  featuredUntil  DateTime?
+  priceFromFils  Int?
+  completeness   Int           @default(0)
+  isDemo         Boolean       @default(false)
+  ownerUserId    String
+  owner          User          @relation("ProfileOwner", fields: [ownerUserId], references: [id], onDelete: Cascade)
+  organizationId String?
+  organization   Organization? @relation("OrgProfiles", fields: [organizationId], references: [id])
+  managedByOrgId String?
+  managedByOrg   Organization? @relation("ManagedProfiles", fields: [managedByOrgId], references: [id])
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  lastActiveAt   DateTime      @default(now())
+
+  brand          BrandDetails?
+  podcast        PodcastDetails?
+  guest          GuestDetails?
+  influencer     InfluencerDetails?
+  agency         AgencyDetails?
+  socialAccounts SocialAccount[]
+  metrics        MetricRecord[]
+  audience       AudienceSlice[]
+  offerings      Offering[]
+  availability   AvailabilityRule[]
+  documents      VerificationDocument[]
+  campaigns      Campaign[]
+  dealsInitiated Deal[]        @relation("DealInitiator")
+  dealsReceived  Deal[]        @relation("DealRecipient")
+  participants   ConversationParticipant[]
+  reviewsWritten Review[]      @relation("ReviewAuthor")
+  reviewsReceived Review[]     @relation("ReviewSubject")
+  crmOwned       CrmContact[]  @relation("CrmOwner")
+  crmAppearsIn   CrmContact[]  @relation("CrmContact")
+  savedBy        SavedProfile[]
+  fraudFlags     FraudFlag[]
+  blocksMade     Block[]       @relation("Blocker")
+  blocksReceived Block[]       @relation("Blocked")
+  bookingsProvided Booking[]   @relation("BookingProvider")
+  bookingsRequested Booking[]  @relation("BookingRequester")
+
+  @@index([type, status])
+  @@index([emirate])
+  @@index([industry])
+  @@index([ownerUserId])
+  @@index([organizationId])
+  @@index([managedByOrgId])
+}
+
+model BrandDetails {
+  profileId          String   @id
+  profile            Profile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  companySize        String?
+  audienceType       String?  // B2B | B2C | BOTH
+  targetGeographies  String[]
+  targetAudience     String?
+  budgetMinFils      Int?
+  budgetMaxFils      Int?
+  objectives         String[]
+  preferredPlatforms String[]
+  productCategories  String[]
+}
+
+model PodcastDetails {
+  profileId             String   @id
+  profile               Profile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  hostNames             String?
+  productionCompany     String?
+  format                String   @default("AUDIO") // AUDIO | VIDEO | BOTH
+  frequency             String?
+  avgDurationMin        Int?
+  episodeCount          Int?
+  recordingLocation     String?
+  spotifyUrl            String?
+  appleUrl              String?
+  youtubeUrl            String?
+  guestBookingOpen      Boolean  @default(false)
+  guestRequirements     String?
+  recordingRequirements String?
+}
+
+model GuestDetails {
+  profileId        String   @id
+  profile          Profile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  professionalTitle String?
+  company          String?
+  seniority        String?
+  expertise        String[]
+  topics           String[]
+  excludedTopics   String[]
+  preferredCategories String[]
+  appearanceTypes  String[] // FREE_EXPERT, PAID, SPONSORED, PROMOTIONAL, THOUGHT_LEADERSHIP, PANEL
+  willingToTravel  Boolean  @default(false)
+  virtualAvailable Boolean  @default(true)
+  introVideoUrl    String?
+  linkedinUrl      String?
+  mediaKitUrl      String?
+  objectives       String[]
+  pastAppearances  Json?
+}
+
+model InfluencerDetails {
+  profileId             String    @id
+  profile               Profile   @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  creatorName           String?
+  contentFormats        String[]
+  preferredCategories   String[]
+  brandExclusions       String[]
+  nationality           String?   // voluntary; NEVER used for matching or ranking
+  advertiserPermitNo    String?
+  permitExpiresAt       DateTime?
+  pastCollaborations    Json?
+  portfolio             Json?
+  mediaKitUrl           String?
+}
+
+model AgencyDetails {
+  profileId      String   @id
+  profile        Profile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  agencyType     String?  // ADVERTISING | TALENT | PODCAST_PRODUCTION | PR
+  services       String[]
+}
+
+// ───────────────────────────── Audience & metrics ─────────────────────────────
+
+enum MetricSource {
+  API_VERIFIED
+  CREATOR_REPORTED
+  ADVERTISER_REPORTED
+  PLATFORM_ESTIMATED
+}
+
+model SocialAccount {
+  id             String       @id @default(cuid())
+  profileId      String
+  profile        Profile      @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  platform       String       // INSTAGRAM, TIKTOK, YOUTUBE, LINKEDIN, SNAPCHAT, X, FACEBOOK, SPOTIFY, APPLE_PODCASTS, BLOG
+  handle         String
+  url            String?
+  followers      Int?
+  avgViews       Int?
+  avgReach       Int?
+  engagementRate Float?       // percent, e.g. 3.4
+  source         MetricSource @default(CREATOR_REPORTED)
+  verifiedAt     DateTime?
+  updatedAt      DateTime     @updatedAt
+
+  @@unique([profileId, platform, handle])
+}
+
+model MetricRecord {
+  id         String       @id @default(cuid())
+  profileId  String
+  profile    Profile      @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  key        String       // monthly_downloads, monthly_video_views, avg_views_per_episode, avg_listens, ...
+  value      Float
+  source     MetricSource @default(CREATOR_REPORTED)
+  periodLabel String?
+  recordedAt DateTime     @default(now())
+
+  @@index([profileId, key])
+}
+
+model AudienceSlice {
+  id        String       @id @default(cuid())
+  profileId String
+  profile   Profile      @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  dimension String       // GEO | AGE | INTEREST | LANGUAGE | GENDER
+  bucket    String       // e.g. "Dubai", "25-34", "Real estate"
+  share     Float        // 0..100
+  source    MetricSource @default(CREATOR_REPORTED)
+
+  @@unique([profileId, dimension, bucket])
+}
+
+// ───────────────────────────── Offerings & availability ─────────────────────────────
+
+enum PriceType {
+  FIXED
+  FROM
+  ON_REQUEST
+  FREE
+}
+
+model Offering {
+  id             String    @id @default(cuid())
+  profileId      String
+  profile        Profile   @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  kind           String    // see src/lib/taxonomy.ts OFFERING_KINDS
+  title          String
+  description    String?
+  priceType      PriceType @default(FIXED)
+  priceFils      Int?
+  deliveryDays   Int?
+  inventoryTotal Int?      // null = unlimited
+  inventoryUsed  Int       @default(0)
+  bookable       Boolean   @default(false) // requires a time slot
+  durationMin    Int?
+  isActive       Boolean   @default(true)
+  createdAt      DateTime  @default(now())
+  deals          Deal[]
+  bookings       Booking[]
+
+  @@index([profileId, isActive])
+  @@index([kind])
+}
+
+model AvailabilityRule {
+  id          String  @id @default(cuid())
+  profileId   String
+  profile     Profile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  weekday     Int     // 0=Sunday .. 6=Saturday
+  startMinute Int     // minutes from 00:00 in `timezone`
+  endMinute   Int
+  timezone    String  @default("Asia/Dubai")
+
+  @@index([profileId])
+}
+
+// ───────────────────────────── Campaigns ─────────────────────────────
+
+enum CampaignStatus {
+  DRAFT
+  PENDING_REVIEW
+  OPEN
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum ComplianceStatus {
+  NOT_REQUIRED
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+model Campaign {
+  id               String           @id @default(cuid())
+  slug             String           @unique
+  brandProfileId   String
+  brand            Profile          @relation(fields: [brandProfileId], references: [id], onDelete: Cascade)
+  createdByUserId  String
+  name             String
+  objective        String
+  product          String?
+  industry         String?
+  targetCustomer   String?
+  audienceType     String?
+  targetCountry    String           @default("AE")
+  targetEmirates   String[]
+  ageMin           Int?
+  ageMax           Int?
+  languages        String[]
+  budgetMinFils    Int?
+  budgetMaxFils    Int?
+  startDate        DateTime?
+  endDate          DateTime?
+  minAudience      Int?
+  creatorTypes     String[]         // PODCAST, INFLUENCER, GUEST
+  categories       String[]
+  contentFormats   String[]
+  brandSafety      String?
+  successMetrics   String[]
+  callToAction     String?
+  landingUrl       String?
+  instructions     String?
+  recurring        Boolean          @default(false)
+  visibility       Visibility       @default(PUBLIC)
+  status           CampaignStatus   @default(DRAFT)
+  regulatedCategory String?
+  complianceStatus ComplianceStatus @default(NOT_REQUIRED)
+  complianceNotes  String?
+  isDemo           Boolean          @default(false)
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+  deliverables     CampaignDeliverable[]
+  deals            Deal[]
+  trackingLinks    TrackingLink[]
+  compliance       ComplianceRecord[]
+
+  @@index([status, visibility])
+  @@index([brandProfileId])
+}
+
+model CampaignDeliverable {
+  id          String   @id @default(cuid())
+  campaignId  String
+  campaign    Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  kind        String
+  description String?
+  quantity    Int      @default(1)
+}
+
+// ───────────────────────────── Deals (collaboration lifecycle) ─────────────────────────────
+// A Deal unifies invitations, campaign applications, guest pitches and direct package requests.
+
+enum DealOrigin {
+  INVITATION
+  APPLICATION
+  PITCH
+  PACKAGE_REQUEST
+}
+
+enum DealKind {
+  PODCAST_SPONSORSHIP
+  INFLUENCER_CAMPAIGN
+  GUEST_APPEARANCE
+  UGC_PRODUCTION
+  EVENT_APPEARANCE
+  AMBASSADOR
+  OTHER
+}
+
+enum DealStatus {
+  PROPOSED
+  NEGOTIATING
+  AGREED
+  CONTRACTED
+  FUNDED
+  IN_PROGRESS
+  DELIVERED
+  COMPLETED
+  DECLINED
+  CANCELLED
+  DISPUTED
+}
+
+model Deal {
+  id                 String     @id @default(cuid())
+  origin             DealOrigin
+  kind               DealKind
+  status             DealStatus @default(PROPOSED)
+  title              String
+  initiatorProfileId String
+  initiator          Profile    @relation("DealInitiator", fields: [initiatorProfileId], references: [id], onDelete: Cascade)
+  recipientProfileId String
+  recipient          Profile    @relation("DealRecipient", fields: [recipientProfileId], references: [id], onDelete: Cascade)
+  campaignId         String?
+  campaign           Campaign?  @relation(fields: [campaignId], references: [id])
+  offeringId         String?
+  offering           Offering?  @relation(fields: [offeringId], references: [id])
+  matchScore         Int?
+  agreedProposalId   String?    @unique
+  completedAt        DateTime?
+  cancelledReason    String?
+  createdAt          DateTime   @default(now())
+  updatedAt          DateTime   @updatedAt
+
+  proposals    Proposal[]
+  deliverables Deliverable[]
+  contract     Contract?
+  payments     Payment[]
+  payouts      Payout[]
+  reviews      Review[]
+  disputes     Dispute[]
+  bookings     Booking[]
+  conversation Conversation?
+  metrics      CampaignMetric[]
+  trackingLinks TrackingLink[]
+  events       DealEvent[]
+
+  @@index([initiatorProfileId, status])
+  @@index([recipientProfileId, status])
+  @@index([campaignId])
+}
+
+enum ProposalStatus {
+  ACTIVE
+  SUPERSEDED
+  ACCEPTED
+  WITHDRAWN
+}
+
+model Proposal {
+  id              String         @id @default(cuid())
+  dealId          String
+  deal            Deal           @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  authorProfileId String
+  priceFils       Int            @default(0)
+  payerProfileId  String?        // who pays; null when no payment is involved
+  deliverables    Json           // [{title, dueDate?}]
+  publishDate     DateTime?
+  usageRights     String?
+  exclusivity     String?
+  revisions       Int            @default(1)
+  message         String?
+  status          ProposalStatus @default(ACTIVE)
+  createdAt       DateTime       @default(now())
+
+  @@index([dealId])
+}
+
+model DealEvent {
+  id        String   @id @default(cuid())
+  dealId    String
+  deal      Deal     @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  actorUserId String?
+  type      String
+  detail    String?
+  createdAt DateTime @default(now())
+
+  @@index([dealId])
+}
+
+enum DeliverableStatus {
+  PENDING
+  SUBMITTED
+  REVISION_REQUESTED
+  APPROVED
+}
+
+model Deliverable {
+  id            String            @id @default(cuid())
+  dealId        String
+  deal          Deal              @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  title         String
+  dueDate       DateTime?
+  status        DeliverableStatus @default(PENDING)
+  submissionUrl String?
+  notes         String?
+  feedback      String?
+  submittedAt   DateTime?
+  approvedAt    DateTime?
+}
+
+model Contract {
+  id                  String    @id @default(cuid())
+  dealId              String    @unique
+  deal                Deal      @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  templateVersion     String
+  body                String
+  bodyHash            String
+  initiatorAcceptedAt DateTime?
+  initiatorAcceptedBy String?
+  recipientAcceptedAt DateTime?
+  recipientAcceptedBy String?
+  createdAt           DateTime  @default(now())
+}
+
+// ───────────────────────────── Bookings ─────────────────────────────
+
+enum BookingStatus {
+  REQUESTED
+  CONFIRMED
+  RESCHEDULE_REQUESTED
+  CANCELLED
+  COMPLETED
+}
+
+model Booking {
+  id                 String        @id @default(cuid())
+  dealId             String?
+  deal               Deal?         @relation(fields: [dealId], references: [id])
+  offeringId         String?
+  offering           Offering?     @relation(fields: [offeringId], references: [id])
+  providerProfileId  String
+  provider           Profile       @relation("BookingProvider", fields: [providerProfileId], references: [id], onDelete: Cascade)
+  requesterProfileId String
+  requester          Profile       @relation("BookingRequester", fields: [requesterProfileId], references: [id], onDelete: Cascade)
+  startsAt           DateTime
+  endsAt             DateTime
+  timezone           String        @default("Asia/Dubai")
+  mode               String        @default("VIRTUAL") // VIRTUAL | IN_PERSON
+  location           String?
+  meetingUrl         String?
+  notes              String?
+  status             BookingStatus @default(REQUESTED)
+  proposedStartsAt   DateTime?
+  reminderSentAt     DateTime?
+  createdAt          DateTime      @default(now())
+
+  @@index([providerProfileId, startsAt])
+  @@index([requesterProfileId, startsAt])
+}
+
+// ───────────────────────────── Messaging & CRM ─────────────────────────────
+
+model Conversation {
+  id            String    @id @default(cuid())
+  dealId        String?   @unique
+  deal          Deal?     @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  subject       String?
+  lastMessageAt DateTime  @default(now())
+  createdAt     DateTime  @default(now())
+  participants  ConversationParticipant[]
+  messages      Message[]
+}
+
+model ConversationParticipant {
+  id             String       @id @default(cuid())
+  conversationId String
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  profileId      String
+  profile        Profile      @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  lastReadAt     DateTime?
+
+  @@unique([conversationId, profileId])
+  @@index([profileId])
+}
+
+model Message {
+  id              String       @id @default(cuid())
+  conversationId  String
+  conversation    Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  senderProfileId String
+  senderUserId    String
+  body            String
+  attachmentUrl   String?
+  flaggedSpam     Boolean      @default(false)
+  createdAt       DateTime     @default(now())
+
+  @@index([conversationId, createdAt])
+}
+
+model Block {
+  id               String   @id @default(cuid())
+  blockerProfileId String
+  blocker          Profile  @relation("Blocker", fields: [blockerProfileId], references: [id], onDelete: Cascade)
+  blockedProfileId String
+  blocked          Profile  @relation("Blocked", fields: [blockedProfileId], references: [id], onDelete: Cascade)
+  createdAt        DateTime @default(now())
+
+  @@unique([blockerProfileId, blockedProfileId])
+}
+
+enum CrmStage {
+  NEW_LEAD
+  CONTACTED
+  INTERESTED
+  NEGOTIATING
+  BOOKED
+  COMPLETED
+  REPEAT_CLIENT
+  NOT_INTERESTED
+}
+
+model CrmContact {
+  id               String    @id @default(cuid())
+  ownerProfileId   String
+  owner            Profile   @relation("CrmOwner", fields: [ownerProfileId], references: [id], onDelete: Cascade)
+  contactProfileId String
+  contact          Profile   @relation("CrmContact", fields: [contactProfileId], references: [id], onDelete: Cascade)
+  stage            CrmStage  @default(NEW_LEAD)
+  notes            String?
+  nextFollowUpAt   DateTime?
+  updatedAt        DateTime  @updatedAt
+
+  @@unique([ownerProfileId, contactProfileId])
+}
+
+model SavedProfile {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  profileId String
+  profile   Profile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  listName  String   @default("Saved")
+  createdAt DateTime @default(now())
+
+  @@unique([userId, profileId, listName])
+}
+
+model SavedSearch {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name      String
+  scope     String   // podcasts | influencers | guests | brands | campaigns | sponsorships
+  query     String   // URL query string
+  alert     Boolean  @default(true)
+  lastAlertAt DateTime?
+  createdAt DateTime @default(now())
+}
+
+model MatchFeedback {
+  id              String   @id @default(cuid())
+  userId          String
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  sourceProfileId String
+  targetProfileId String
+  signal          String   // HIDE | SAVE | CONTACT
+  createdAt       DateTime @default(now())
+
+  @@unique([sourceProfileId, targetProfileId, signal])
+}
+
+// ───────────────────────────── Payments & finance ─────────────────────────────
+
+enum PaymentStatus {
+  PENDING
+  SUCCEEDED
+  FAILED
+  REFUNDED
+  PARTIALLY_REFUNDED
+}
+
+model Payment {
+  id             String        @id @default(cuid())
+  dealId         String
+  deal           Deal          @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  payerProfileId String
+  amountFils     Int           // what the payer is charged (deal price + VAT on platform fee where configured)
+  dealAmountFils Int
+  commissionFils Int
+  vatFils        Int           @default(0)
+  currency       String        @default("AED")
+  provider       String
+  providerRef    String?       @unique
+  checkoutUrl    String?
+  status         PaymentStatus @default(PENDING)
+  failureReason  String?
+  confirmedAt    DateTime?
+  refundedFils   Int           @default(0)
+  createdAt      DateTime      @default(now())
+  invoice        Invoice?
+  refunds        Refund[]
+  webhookEvents  WebhookEvent[]
+
+  @@index([dealId])
+  @@index([status])
+}
+
+model WebhookEvent {
+  id         String   @id @default(cuid())
+  provider   String
+  eventId    String
+  type       String
+  paymentId  String?
+  payment    Payment? @relation(fields: [paymentId], references: [id])
+  payload    Json
+  processedAt DateTime @default(now())
+
+  @@unique([provider, eventId])
+}
+
+enum PayoutStatus {
+  HELD
+  ELIGIBLE
+  PAID
+  ON_HOLD
+  CANCELLED
+}
+
+model Payout {
+  id             String       @id @default(cuid())
+  dealId         String
+  deal           Deal         @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  payeeProfileId String
+  amountFils     Int
+  status         PayoutStatus @default(HELD)
+  holdReason     String?
+  reference      String?
+  paidAt         DateTime?
+  createdAt      DateTime     @default(now())
+
+  @@index([status])
+}
+
+model Invoice {
+  id           String   @id @default(cuid())
+  number       String   @unique
+  paymentId    String   @unique
+  payment      Payment  @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+  billedTo     String
+  lines        Json
+  subtotalFils Int
+  vatFils      Int
+  totalFils    Int
+  issuedAt     DateTime @default(now())
+}
+
+enum RefundStatus {
+  REQUESTED
+  APPROVED
+  PROCESSED
+  REJECTED
+}
+
+model Refund {
+  id          String       @id @default(cuid())
+  paymentId   String
+  payment     Payment      @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+  amountFils  Int
+  reason      String
+  status      RefundStatus @default(REQUESTED)
+  createdAt   DateTime     @default(now())
+  processedAt DateTime?
+}
+
+model Plan {
+  id               String   @id @default(cuid())
+  code             String   @unique
+  audience         String   // ALL | CREATOR | BRAND | AGENCY
+  name             String
+  tagline          String?
+  priceMonthlyFils Int      @default(0)
+  priceYearlyFils  Int      @default(0)
+  features         String[]
+  limits           Json     // {activeCampaigns, monthlyInvites, monthlyApplications, teamSeats, aiMatching}
+  isActive         Boolean  @default(true)
+  sort             Int      @default(0)
+  subscriptions    Subscription[]
+}
+
+model Subscription {
+  id               String        @id @default(cuid())
+  planId           String
+  plan             Plan          @relation(fields: [planId], references: [id])
+  userId           String?
+  user             User?         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organizationId   String?
+  organization     Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  status           String        @default("ACTIVE") // ACTIVE | PAST_DUE | CANCELLED | PENDING_PAYMENT
+  currentPeriodEnd DateTime?
+  provider         String?
+  providerRef      String?
+  createdAt        DateTime      @default(now())
+}
+
+model Promotion {
+  id             String    @id @default(cuid())
+  code           String    @unique
+  name           String
+  description    String?
+  kind           String    // COMMISSION_DISCOUNT_PCT | FREE_FEATURED_DAYS | FREE_VERIFICATION | FIRST_CAMPAIGN_FREE
+  value          Float
+  audience       String    @default("ALL")
+  startsAt       DateTime  @default(now())
+  endsAt         DateTime?
+  maxRedemptions Int?
+  redemptions    Int       @default(0)
+  isActive       Boolean   @default(true)
+}
+
+model Referral {
+  id             String    @id @default(cuid())
+  referrerUserId String
+  referrer       User      @relation("Referrer", fields: [referrerUserId], references: [id], onDelete: Cascade)
+  refereeUserId  String    @unique
+  referee        User      @relation("Referee", fields: [refereeUserId], references: [id], onDelete: Cascade)
+  qualifiedAt    DateTime? // set when the referee completes their first deal — rewards depend on value, not sign-ups
+  createdAt      DateTime  @default(now())
+}
+
+// ───────────────────────────── Measurement ─────────────────────────────
+
+model TrackingLink {
+  id             String    @id @default(cuid())
+  slug           String    @unique
+  destinationUrl String
+  label          String?
+  couponCode     String?
+  dealId         String?
+  deal           Deal?     @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  campaignId     String?
+  campaign       Campaign? @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  clicks         Int       @default(0)
+  createdAt      DateTime  @default(now())
+  clickEvents    ClickEvent[]
+}
+
+model ClickEvent {
+  id        String       @id @default(cuid())
+  linkId    String
+  link      TrackingLink @relation(fields: [linkId], references: [id], onDelete: Cascade)
+  referrer  String?
+  visitorHash String?
+  createdAt DateTime     @default(now())
+
+  @@index([linkId, createdAt])
+}
+
+model CampaignMetric {
+  id             String       @id @default(cuid())
+  dealId         String
+  deal           Deal         @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  key            String       // impressions, views, downloads, clicks, leads, conversions, coupon_redemptions, revenue_fils ...
+  value          Float
+  source         MetricSource
+  note           String?
+  recordedByUserId String
+  recordedAt     DateTime     @default(now())
+
+  @@index([dealId])
+}
+
+model AnalyticsEvent {
+  id        String   @id @default(cuid())
+  userId    String?
+  name      String   // signup, profile_published, first_search, invite_sent, deal_funded ...
+  props     Json?
+  createdAt DateTime @default(now())
+
+  @@index([name, createdAt])
+  @@index([userId])
+}
+
+// ───────────────────────────── Trust, safety & compliance ─────────────────────────────
+
+enum ReviewState {
+  PENDING_REVEAL
+  PUBLISHED
+  HIDDEN
+}
+
+model Review {
+  id              String      @id @default(cuid())
+  dealId          String
+  deal            Deal        @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  authorProfileId String
+  author          Profile     @relation("ReviewAuthor", fields: [authorProfileId], references: [id], onDelete: Cascade)
+  subjectProfileId String
+  subject         Profile     @relation("ReviewSubject", fields: [subjectProfileId], references: [id], onDelete: Cascade)
+  rating          Int
+  body            String?
+  state           ReviewState @default(PENDING_REVEAL)
+  createdAt       DateTime    @default(now())
+
+  @@unique([dealId, authorProfileId])
+  @@index([subjectProfileId, state])
+}
+
+enum DisputeStatus {
+  OPEN
+  UNDER_REVIEW
+  RESOLVED_RELEASE
+  RESOLVED_REFUND
+  RESOLVED_SPLIT
+  WITHDRAWN
+}
+
+model Dispute {
+  id                String        @id @default(cuid())
+  dealId            String
+  deal              Deal          @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  openedByProfileId String
+  reason            String
+  details           String
+  status            DisputeStatus @default(OPEN)
+  resolution        String?
+  previousDealStatus DealStatus
+  createdAt         DateTime      @default(now())
+  resolvedAt        DateTime?
+}
+
+enum DocStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  EXPIRED
+}
+
+model VerificationDocument {
+  id          String    @id @default(cuid())
+  profileId   String
+  profile     Profile   @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  kind        String    // TRADE_LICENSE | ADVERTISER_PERMIT | VISITOR_ADVERTISER_PERMIT | PODCAST_OWNERSHIP | IDENTITY | OTHER
+  reference   String?
+  storageKey  String
+  fileName    String
+  mimeType    String
+  sizeBytes   Int
+  expiresAt   DateTime?
+  status      DocStatus @default(PENDING)
+  reviewerId  String?
+  reviewNotes String?
+  reviewedAt  DateTime?
+  createdAt   DateTime  @default(now())
+
+  @@index([status])
+}
+
+model ComplianceRecord {
+  id          String           @id @default(cuid())
+  campaignId  String?
+  campaign    Campaign?        @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  profileId   String?
+  check       String
+  status      ComplianceStatus
+  notes       String?
+  reviewerId  String?
+  createdAt   DateTime         @default(now())
+}
+
+model Report {
+  id             String   @id @default(cuid())
+  reporterUserId String
+  reporter       User     @relation(fields: [reporterUserId], references: [id], onDelete: Cascade)
+  targetType     String   // PROFILE | CAMPAIGN | MESSAGE | REVIEW
+  targetId       String
+  reason         String
+  details        String?
+  status         String   @default("OPEN") // OPEN | ACTIONED | DISMISSED
+  resolution     String?
+  createdAt      DateTime @default(now())
+
+  @@index([status])
+}
+
+model FraudFlag {
+  id        String   @id @default(cuid())
+  profileId String?
+  profile   Profile? @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  kind      String   // ENGAGEMENT_OUTLIER | DUPLICATE_BIO | SPAM_MESSAGES | METRIC_JUMP | DUPLICATE_ACCOUNT
+  details   String
+  score     Float    @default(0)
+  status    String   @default("OPEN") // OPEN | CLEARED | CONFIRMED
+  createdAt DateTime @default(now())
+
+  @@unique([profileId, kind])
+  @@index([status])
+}
+
+model AuditLog {
+  id          String   @id @default(cuid())
+  actorUserId String?
+  actor       User?    @relation(fields: [actorUserId], references: [id])
+  action      String
+  targetType  String?
+  targetId    String?
+  meta        Json?
+  ip          String?
+  createdAt   DateTime @default(now())
+
+  @@index([action, createdAt])
+  @@index([targetType, targetId])
+}
+
+// ───────────────────────────── Notifications, CMS, config ─────────────────────────────
+
+model Notification {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      String
+  title     String
+  body      String?
+  link      String?
+  readAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId, readAt])
+}
+
+model NotificationPreference {
+  id     String  @id @default(cuid())
+  userId String
+  user   User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type   String  // a notification group: deals | messages | bookings | payments | opportunities | marketing
+  inApp  Boolean @default(true)
+  email  Boolean @default(true)
+
+  @@unique([userId, type])
+}
+
+model EmailOutbox {
+  id        String   @id @default(cuid())
+  to        String
+  subject   String
+  body      String
+  status    String   @default("QUEUED") // QUEUED | SENT | FAILED | LOGGED
+  error     String?
+  createdAt DateTime @default(now())
+  sentAt    DateTime?
+
+  @@index([status])
+}
+
+model Post {
+  id          String    @id @default(cuid())
+  kind        String    // BLOG | RESOURCE | SUCCESS_STORY | FAQ
+  slug        String    @unique
+  title       String
+  excerpt     String?
+  body        String
+  status      String    @default("DRAFT") // DRAFT | PUBLISHED
+  publishedAt DateTime?
+  authorName  String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([kind, status])
+}
+
+model ContactMessage {
+  id        String   @id @default(cuid())
+  name      String
+  email     String
+  topic     String
+  body      String
+  handled   Boolean  @default(false)
+  createdAt DateTime @default(now())
+}
+
+model PlatformConfig {
+  key       String   @id
+  value     Json
+  updatedAt DateTime @updatedAt
+  updatedBy String?
+}
+
+model TaxonomyTerm {
+  id     String  @id @default(cuid())
+  kind   String  // INDUSTRY | NICHE | LANGUAGE | EMIRATE | PLATFORM | REGULATED
+  slug   String
+  label  String
+  labelAr String?
+  parent String?
+  sort   Int     @default(0)
+  active Boolean @default(true)
+
+  @@unique([kind, slug])
+}

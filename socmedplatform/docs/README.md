@@ -1,0 +1,10 @@
+# Documentation
+1. [Market research & competitors](01-market-research.md)
+2. [Business model](02-business-model.md)
+3. [PRD, journeys, IA](03-product-requirements.md)
+4. [Architecture, data model, API, permissions](04-architecture.md)
+5. [Design system](05-design-system.md)
+6. [Security, privacy, compliance](06-security-privacy-compliance.md)
+7. [Testing](07-testing.md)
+8. [Deployment & maintenance](08-deployment-and-operations.md)
+9. [Launch, growth & KPIs](09-launch-and-growth.md)
