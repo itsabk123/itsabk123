@@ -31,7 +31,15 @@ function cfg(string $k)
         'ENVIRONMENT' => 'staging',
         'NOINDEX' => true,
     ];
-    return defined('SS_' . $k) ? constant('SS_' . $k) : ($defaults[$k] ?? null);
+    if (defined('SS_' . $k)) {
+        return constant('SS_' . $k);
+    }
+    // Environment variables (e.g. from docker-compose) override defaults; config.php overrides both.
+    $env = getenv('SS_' . $k);
+    if ($env !== false && $env !== '') {
+        return in_array(strtolower($env), ['true', 'false'], true) ? strtolower($env) === 'true' : $env;
+    }
+    return $defaults[$k] ?? null;
 }
 
 require_once SS_ROOT . '/lib/engine.php';
@@ -41,6 +49,27 @@ foreach (['Db', 'Content', 'App', 'Charts', 'View'] as $f) {
 
 error_reporting(E_ALL);
 ini_set('display_errors', cfg('ENVIRONMENT') === 'development' ? '1' : '0');
+ini_set('log_errors', '1');
+
+/**
+ * Uncaught errors: always logged with a reference ID. Visitors see a friendly page with
+ * that ID; in development (local Docker) the page also shows the actual error and location.
+ */
+set_exception_handler(static function (\Throwable $ex): void {
+    $ref = strtoupper(bin2hex(random_bytes(4)));
+    error_log(sprintf('[SS %s] %s: %s in %s:%d', $ref, get_class($ex), $ex->getMessage(), $ex->getFile(), $ex->getLine()));
+    if (!headers_sent()) {
+        http_response_code(500);
+        header('Content-Type: text/html; charset=utf-8');
+    }
+    $dev = cfg('ENVIRONMENT') === 'development';
+    echo '<!doctype html><meta charset="utf-8"><title>Error</title><body style="font:16px system-ui;max-width:760px;margin:40px auto;padding:0 16px">'
+        . '<h1>Something went wrong</h1><p>Reference: <strong>' . $ref . '</strong>. The details were written to the server log.</p>';
+    if ($dev) {
+        echo '<pre style="white-space:pre-wrap;background:#f4dcd6;padding:12px;border-radius:6px">' . htmlspecialchars(get_class($ex) . ': ' . $ex->getMessage() . "\n" . $ex->getFile() . ':' . $ex->getLine() . "\n\n" . $ex->getTraceAsString()) . '</pre>';
+    }
+    echo '</body>';
+});
 
 function base_path(): string
 {
@@ -178,6 +207,10 @@ function audit(string $action, ?string $target = null, $detail = null): void
 /** Sliding-window rate limit. Returns true when the call is allowed (and records it). */
 function rate_limit(string $bucket, int $max, int $windowSeconds): bool
 {
+    // Local development: relax anti-spam limits (login throttling stays strict).
+    if (cfg('ENVIRONMENT') === 'development' && !str_starts_with($bucket, 'login:') && !str_starts_with($bucket, 'mfa:')) {
+        $max *= 50;
+    }
     $since = gmdate('Y-m-d H:i:s', time() - $windowSeconds);
     $n = (int) Db::val('SELECT COUNT(*) FROM rate_limits WHERE bucket = ? AND created_at > ?', [$bucket, $since]);
     if ($n >= $max) {

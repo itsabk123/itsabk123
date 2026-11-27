@@ -5,6 +5,9 @@ services:
     container_name: shelterandsense
     ports:
       - "8090:80"          # change the left number if 8090 is already in use
+    environment:
+      SS_ENVIRONMENT: development   # shows real error messages on screen; relaxes rate limits
+      SS_SITE_URL: http://localhost:8090
     volumes:
       - shelterandsense-data:/var/www/html/data
     restart: unless-stopped
