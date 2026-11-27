@@ -12,6 +12,20 @@ Documentation for all 30 deliverables: [`docs/README.md`](docs/README.md).
 - PHP 8.1+ with `pdo_sqlite` (default) or `pdo_mysql`, `mbstring`, `fileinfo`
 - Apache with `.htaccess` (recommended) — no Composer, Node or build step
 
+## Run locally with Docker Desktop
+From the `realestate/` folder:
+```
+docker compose up -d --build
+docker exec shelterandsense php cron.php create-admin you@example.com 'a-strong-password'
+```
+Open http://localhost:8090 (change `8090` in `docker-compose.yml` if that port is taken).
+The database and uploads live in the `shelterandsense-data` volume, so they survive rebuilds.
+After pulling new code, run `docker compose up -d --build` again. Run the scheduled jobs with
+`docker exec shelterandsense php cron.php`.
+
+Without Docker (PHP 8.1+ installed): `php -S localhost:8090` from inside `realestate/`, then open
+http://localhost:8090. PHP's built-in server ignores `.htaccess`, so use it for local testing only.
+
 ## Deploy to shared hosting
 1. Put this `realestate/` folder at `public_html/githubtest2/realestate/` (FTP, cPanel File
    Manager, or cPanel Git™ Version Control pulling branch `claude/focused-ptolemy-fbvt58`).

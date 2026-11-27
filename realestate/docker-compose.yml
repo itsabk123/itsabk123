@@ -1,0 +1,13 @@
+# Run locally:  docker compose up -d --build   →  http://localhost:8090
+services:
+  web:
+    build: .
+    container_name: shelterandsense
+    ports:
+      - "8090:80"          # change the left number if 8090 is already in use
+    volumes:
+      - shelterandsense-data:/var/www/html/data
+    restart: unless-stopped
+
+volumes:
+  shelterandsense-data:
